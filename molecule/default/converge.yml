@@ -1,0 +1,9 @@
+---
+- name: Converge
+  hosts: all
+  tasks:
+    - name: "Include etcd"
+      include_role:
+        name: "etcd"
+      vars:
+        etcd_insecure: false

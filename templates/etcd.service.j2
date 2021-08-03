@@ -1,0 +1,44 @@
+{%- macro etcd_cluster_hosts() -%}
+{%- for host in groups['etcd'] -%}
+{{ hostvars[host]['inventory_hostname'] }}={{ etcd_schema }}://{{ hostvars[host]['ansible_' + etcd_interface].ipv4.address }}:{{ etcd_peer_port }}{% if not loop.last %},{% endif %}
+{%- endfor -%}
+{%- endmacro -%}
+
+[Unit]
+Description=etcd key-value store
+Documentation=https://github.com/coreos/etcd/
+After=network-online.target local-fs.target remote-fs.target time-sync.target
+Wants=network-online.target local-fs.target remote-fs.target time-sync.target
+
+[Service]
+User=etcd
+Type=notify
+ExecStart=/usr/local/bin/etcd \
+  --name {{ inventory_hostname }} \
+  {% if not etcd_insecure %}
+  --cert-file={{ etcd_confdir | regex_replace('/$') }}/etcd-server.pem \
+  --key-file={{ etcd_confdir | regex_replace('/$') }}/etcd-server.key \
+  --peer-cert-file={{ etcd_confdir | regex_replace('/$') }}/etcd-peer.pem \
+  --peer-key-file={{ etcd_confdir | regex_replace('/$') }}/etcd-peer.key \
+  --trusted-ca-file={{ etcd_confdir | regex_replace('/$') }}/ca.pem \
+  --peer-trusted-ca-file={{ etcd_confdir | regex_replace('/$') }}/ca.pem \
+  --peer-client-cert-auth \
+  --client-cert-auth \
+  {% endif %}
+  --initial-advertise-peer-urls {{ etcd_schema }}://{{ hostvars[inventory_hostname]['ansible_' + etcd_interface].ipv4.address }}:{{ etcd_peer_port }} \
+  --listen-peer-urls {{ etcd_schema }}://{{ hostvars[inventory_hostname]['ansible_' + etcd_interface].ipv4.address }}:{{ etcd_peer_port }} \
+  --listen-client-urls {{ etcd_schema }}://{{ hostvars[inventory_hostname]['ansible_' + etcd_interface].ipv4.address }}:{{ etcd_client_port }},{{ etcd_schema }}://127.0.0.1:{{ etcd_client_port}} \
+  --advertise-client-urls {{ etcd_schema }}://{{ hostvars[inventory_hostname]['ansible_' + etcd_interface].ipv4.address }}:{{ etcd_client_port }} \
+  --initial-cluster-token {{ etcd_cluster_token }} \
+  --initial-cluster {{ etcd_cluster_hosts() }} \
+  --initial-cluster-state {{ etcd_cluster_state }} \
+  --data-dir={{ etcd_datadir }} \
+  --log-level {{ etcd_log_level }} \
+  --logger {{ etcd_logger }} \
+  --log-outputs {{ etcd_log_outputs }}
+Restart=always
+RestartSec=10s
+LimitNOFILE=40000
+
+[Install]
+WantedBy=multi-user.target

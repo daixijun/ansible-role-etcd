@@ -1,0 +1,200 @@
+---
+- name: Install PyOpenSSL
+  pip:
+    name: pyOpenSSL
+    state: present
+    extra_args: --user
+  delegate_to: localhost
+  become: false
+  run_once: true
+
+- name: Create etcd certificate directory
+  file:
+    path: "{{ inventory_dir }}/files/ssl/etcd_{{ etcd_client_port }}/"
+    state: directory
+    mode: "0750"
+  delegate_to: localhost
+  become: false
+  run_once: true
+
+- name: Generate an Self Signed OpenSSL CA private key
+  community.crypto.openssl_privatekey:
+    path: "{{ inventory_dir }}/files/ssl/etcd_{{ etcd_client_port }}/ca.key"
+    type: RSA
+    size: 4096
+    mode: "0600"
+  delegate_to: localhost
+  become: false
+  run_once: true
+
+- name: Generate an Self Signed OpenSSL CA Certificate Signing Request
+  community.crypto.openssl_csr:
+    path: "{{ inventory_dir }}/files/ssl/etcd_{{ etcd_client_port }}/ca.csr"
+    privatekey_path: "{{ inventory_dir }}/files/ssl/etcd_{{ etcd_client_port }}/ca.key"
+    organization_name: etcd
+    common_name: etcd
+    basic_constraints:
+      - CA:TRUE
+    extended_key_usage:
+      - clientAuth
+      - serverAuth
+    key_usage:
+      - digitalSignature
+      - keyCertSign
+      - keyEncipherment
+    mode: "0600"
+  delegate_to: localhost
+  become: false
+  run_once: true
+
+- name: Generate a Self Signed OpenSSL CA certificate
+  community.crypto.x509_certificate:
+    path: "{{ inventory_dir }}/files/ssl/etcd_{{ etcd_client_port }}/ca.pem"
+    privatekey_path: "{{ inventory_dir }}/files/ssl/etcd_{{ etcd_client_port }}/ca.key"
+    csr_path: "{{ inventory_dir }}/files/ssl/etcd_{{ etcd_client_port }}/ca.csr"
+    selfsigned_not_after: "+3650d"
+    provider: selfsigned
+    mode: "0600"
+  delegate_to: localhost
+  become: false
+  run_once: true
+
+- name: Generate an Self Signed OpenSSL Server private key
+  community.crypto.openssl_privatekey:
+    path: "{{ inventory_dir }}/files/ssl/etcd_{{ etcd_client_port }}/etcd-server.key"
+    type: RSA
+    size: 4096
+    mode: "0600"
+  delegate_to: localhost
+  become: false
+  run_once: true
+
+- name: Generate an Self Signed OpenSSL Server Certificate Signing Request
+  community.crypto.openssl_csr:
+    path: "{{ inventory_dir }}/files/ssl/etcd_{{ etcd_client_port }}/etcd-server.csr"
+    privatekey_path: "{{ inventory_dir }}/files/ssl/etcd_{{ etcd_client_port }}/etcd-server.key"
+    organization_name: etcd
+    common_name: Server
+    subject_alt_name: "{{ etcd_peer_sans_ip | union(etcd_peer_sans_dns) | d(omit) }}"
+    key_usage:
+      - digitalSignature
+      - keyEncipherment
+    extended_key_usage:
+      - serverAuth
+      - clientAuth
+    mode: "0600"
+  delegate_to: localhost
+  become: false
+  run_once: true
+
+- name: Generate a Self Signed OpenSSL Server certificate
+  community.crypto.x509_certificate:
+    path: "{{ inventory_dir }}/files/ssl/etcd_{{ etcd_client_port }}/etcd-server.pem"
+    ownca_path: "{{ inventory_dir }}/files/ssl/etcd_{{ etcd_client_port }}/ca.pem"
+    ownca_privatekey_path: "{{ inventory_dir }}/files/ssl/etcd_{{ etcd_client_port }}/ca.key"
+    csr_path: "{{ inventory_dir }}/files/ssl/etcd_{{ etcd_client_port }}/etcd-server.csr"
+    selfsigned_not_after: "+3650d"
+    provider: ownca
+    mode: "0600"
+  delegate_to: localhost
+  become: false
+  run_once: true
+
+- name: Generate an Self Signed OpenSSL Client private key
+  community.crypto.openssl_privatekey:
+    path: "{{ inventory_dir }}/files/ssl/etcd_{{ etcd_client_port }}/etcd-client.key"
+    type: RSA
+    size: 4096
+    mode: "0600"
+  delegate_to: localhost
+  become: false
+  run_once: true
+
+- name: Generate an Self Signed OpenSSL Client Certificate Signing Request
+  community.crypto.openssl_csr:
+    path: "{{ inventory_dir }}/files/ssl/etcd_{{ etcd_client_port }}/etcd-client.csr"
+    privatekey_path: "{{ inventory_dir }}/files/ssl/etcd_{{ etcd_client_port }}/etcd-client.key"
+    organization_name: etcd
+    common_name: client
+    # subject_alt_name: "{{ etcd_peer_sans_ip | union(etcd_peer_sans_dns) | d(omit) }}"
+    key_usage:
+      - digitalSignature
+      - keyEncipherment
+    extended_key_usage:
+      - clientAuth
+    mode: "0600"
+  delegate_to: localhost
+  become: false
+  run_once: true
+
+- name: Generate a Self Signed OpenSSL Client certificate
+  community.crypto.x509_certificate:
+    path: "{{ inventory_dir }}/files/ssl/etcd_{{ etcd_client_port }}/etcd-client.pem"
+    ownca_path: "{{ inventory_dir }}/files/ssl/etcd_{{ etcd_client_port }}/ca.pem"
+    ownca_privatekey_path: "{{ inventory_dir }}/files/ssl/etcd_{{ etcd_client_port }}/ca.key"
+    csr_path: "{{ inventory_dir }}/files/ssl/etcd_{{ etcd_client_port }}/etcd-client.csr"
+    selfsigned_not_after: "+3650d"
+    provider: ownca
+    mode: "0600"
+  delegate_to: localhost
+  become: false
+  run_once: true
+
+- name: Generate an Self Signed OpenSSL Peer private key
+  community.crypto.openssl_privatekey:
+    path: "{{ inventory_dir }}/files/ssl/etcd_{{ etcd_client_port }}/etcd-peer.key"
+    type: RSA
+    size: 4096
+    mode: "0600"
+  delegate_to: localhost
+  become: false
+  run_once: true
+
+- name: Generate an Self Signed OpenSSL Peer Certificate Signing Request
+  community.crypto.openssl_csr:
+    path: "{{ inventory_dir }}/files/ssl/etcd_{{ etcd_client_port }}/etcd-peer.csr"
+    privatekey_path: "{{ inventory_dir }}/files/ssl/etcd_{{ etcd_client_port }}/etcd-peer.key"
+    organization_name: etcd
+    common_name: peer
+    subject_alt_name: "{{ etcd_peer_sans_ip | union(etcd_peer_sans_dns) | d(omit) }}"
+    key_usage:
+      - digitalSignature
+      - keyEncipherment
+    extended_key_usage:
+      - clientAuth
+      - serverAuth
+    mode: "0600"
+  delegate_to: localhost
+  become: false
+  run_once: true
+
+- name: Generate a Self Signed OpenSSL Peer certificate
+  community.crypto.x509_certificate:
+    path: "{{ inventory_dir }}/files/ssl/etcd_{{ etcd_client_port }}/etcd-peer.pem"
+    ownca_path: "{{ inventory_dir }}/files/ssl/etcd_{{ etcd_client_port }}/ca.pem"
+    ownca_privatekey_path: "{{ inventory_dir }}/files/ssl/etcd_{{ etcd_client_port }}/ca.key"
+    csr_path: "{{ inventory_dir }}/files/ssl/etcd_{{ etcd_client_port }}/etcd-peer.csr"
+    selfsigned_not_after: "+3650d"
+    provider: ownca
+    mode: "0600"
+  delegate_to: localhost
+  become: false
+  run_once: true
+
+- name: Copy certificates to server
+  copy:
+    src: "{{ inventory_dir }}/files/ssl/etcd_{{ etcd_client_port }}/{{ item }}"
+    dest: "{{ etcd_confdir }}/{{ item }}"
+    owner: etcd
+    group: etcd
+    mode: "0640"
+  loop:
+    - ca.pem
+    - etcd-server.pem
+    - etcd-server.key
+    - etcd-client.pem
+    - etcd-client.key
+    - etcd-peer.pem
+    - etcd-peer.key
+  notify:
+    - restart etcd

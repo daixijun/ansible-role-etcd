@@ -1,0 +1,7 @@
+---
+- name: restart etcd
+  throttle: 1
+  systemd:
+    name: etcd
+    daemon_reload: true
+    state: restarted

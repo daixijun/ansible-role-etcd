@@ -1,0 +1,85 @@
+---
+- name: set facts
+  set_fact:
+    etcd_package_name: "{{ etcd_download_url | basename }}"
+    etcd_versioned_dir: "{{ etcd_download_url | basename | regex_replace('.tar.gz$') }}"
+    etcd_schema: "{{ 'https' if not etcd_insecure else 'http' }}"
+    etcd_peer_sans_ip: "{{ groups['etcd'] | map('extract', hostvars, ['ansible_'+etcd_interface, 'ipv4', 'address']) | map('regex_replace', '^', 'IP:') | list | union(['IP:127.0.0.1']) }}"
+    etcd_peer_sans_dns: "{{ groups['etcd'] | map('regex_replace', '^', 'DNS:') | list | union(['DNS:localhost']) }}"
+
+- name: Ensure group etcd
+  ansible.builtin.group:
+    name: etcd
+    system: true
+    state: present
+
+- name: Ensure user etcd
+  ansible.builtin.user:
+    name: etcd
+    group: etcd
+    create_home: false
+    shell: /usr/sbin/nologin
+    system: true
+    state: present
+
+- name: Downloading official etcd release
+  get_url:
+    url: "{{ etcd_download_url }}"
+    checksum: "sha256:{{ etcd_checksum }}"
+    dest: "{{ playbook_dir }}/files/{{ etcd_package_name }}"
+    mode: "0644"
+    timeout: 300
+  delegate_to: localhost
+  become: false
+  run_once: true
+  check_mode: false
+
+- name: Unarchive etcd to target
+  ansible.builtin.unarchive:
+    src: "{{ etcd_package_name }}"
+    dest: /usr/local/bin/
+    # creates: /usr/local/{{ etcd_versioned_dir }}
+    owner: etcd
+    group: etcd
+    extra_opts:
+      - --strip-components=1
+    exclude:
+      - Documentation
+      - README.md
+      - README-etcdctl.md
+      - README-etcdutl.md
+      - READMEv2-etcdctl.md
+
+- name: Create directories
+  file:
+    state: directory
+    owner: etcd
+    group: etcd
+    mode: "0755"
+    dest: "{{ item }}"
+  loop:
+    - "{{ etcd_datadir }}"
+    - "{{ etcd_confdir }}"
+
+- name: Include tls tasks
+  include_tasks: tls.yml
+  when:
+    - not etcd_insecure
+
+- name: Generate systemd unit
+  template:
+    src: etcd.service.j2
+    dest: /etc/systemd/system/etcd.service
+    lstrip_blocks: true
+    owner: root
+    group: root
+    mode: "0644"
+  notify:
+    - restart etcd
+
+- name: Ensure etcd service is started
+  systemd:
+    name: etcd
+    state: started
+    enabled: true
+    daemon_reload: true

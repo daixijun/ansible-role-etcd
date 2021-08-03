@@ -1,0 +1,23 @@
+---
+# This is an example playbook to execute Ansible tests.
+
+- name: Verify
+  hosts: all
+  gather_facts: false
+  tasks:
+    - name: Gather services facts
+      ansible.builtin.service_facts:
+
+    - name: Assert that etcd service are enabled and running state
+      assert:
+        that:
+          - ansible_facts.services['etcd.service'].status == 'enabled'
+          - ansible_facts.services['etcd.service'].state == 'running'
+
+    - name: Show cluster member list
+      shell:
+        cmd: /usr/local/bin/etcdctl --cacert=/etc/etcd/ca.pem --cert=/etc/etcd/etcd-client.pem --key=/etc/etcd/etcd-client.key member list
+        warn: false
+      changed_when: false
+      tags:
+        - skip_ansible_lint
