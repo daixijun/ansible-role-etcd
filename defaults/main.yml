@@ -2,7 +2,6 @@
 etcd_version: 3.5.0
 etcd_download_url: https://github.com/etcd-io/etcd/releases/download/v{{ etcd_version }}/etcd-v{{ etcd_version }}-linux-amd64.tar.gz
 etcd_checksum: https://github.com/etcd-io/etcd/releases/download/v{{ etcd_version }}/SHA256SUMS
-etcd_package_name: "etcd-v{{ etcd_version }}-linux-amd64.tar.gz"
 etcd_datadir: /var/lib/etcd
 etcd_confdir: /etc/etcd
 etcd_peer_port: 2380
